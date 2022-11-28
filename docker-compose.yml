@@ -1,0 +1,57 @@
+version: '3.7'
+services:
+  database:
+    image: postgres:14.1-alpine
+    container_name: database
+    ports:
+       - 5432:5432
+    expose:
+       - 5432
+    volumes:
+      - './postgres-data:/var/lib/postgres/data'
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${DB_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${DB_POSTGRES_DATABASE}
+    networks:
+      - main-network
+  # PostgreSQL pgAdmin panel accessible at http://localhost:16543/
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${DB_POSTGRES_USER}
+      PGADMIN_DEFAULT_PASSWORD: ${DB_POSTGRES_PASSWORD}
+    ports:
+      - 16543:80
+    depends_on:
+      - database
+  redis:
+    container_name: redis
+    image: redis:5
+    networks:
+      - main-network
+    restart: unless-stopped
+    ports:
+      - 6379:6379
+  authy:
+    container_name: authy-dev
+    image: authy-dev:1.0.0
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - 3000:3000
+    networks:
+      - main-network
+    depends_on:
+      - database
+    links:
+      - database
+    volumes:
+      - .:/home/node/app
+      - /home/node/app/node_modules
+networks:
+  main-network:
+    driver: bridge

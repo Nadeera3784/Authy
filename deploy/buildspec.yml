@@ -1,0 +1,36 @@
+version: 0.2
+env:
+  parameter-store:
+    DOCKER_USERNAME: "DOCKER_USERNAME"
+    DOCKER_PASSWORD: "DOCKER_PASSWORD"
+phases:
+    install: 
+        runtime-versions:
+            nodejs: 16
+    pre_build:
+        commands:
+            - echo logging in to Amazon ECR
+            - aws --version
+            - aws ecr get-login-password --region ap-southeast-1 | docker login --username AWS --password-stdin 276087945627.dkr.ecr.ap-southeast-1.amazonaws.com
+            - REPOSITORY_URI=276087945627.dkr.ecr.ap-southeast-1.amazonaws.com/authy
+            - IMAGE_TAG=latest
+            - CONTAINER_NAME=authy-core-container
+    build:
+        commands:
+            - docker login -u=$DOCKER_USERNAME -p=$DOCKER_PASSWORD
+            - docker build -t $REPOSITORY_URI:latest -f deploy/dockerfile .
+            - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+            - echo Writing image definitions file..
+            - printf '[{"name":"CONTAINER_NAME","imageUri":"IMAGE_URI"}]' > imagedefinitions.json
+            - sed -i -e "s|CONTAINER_NAME|$CONTAINER_NAME|g" imagedefinitions.json
+            - sed -i -e "s|IMAGE_URI|$REPOSITORY_URI:$IMAGE_TAG|g" imagedefinitions.json
+            - cat imagedefinitions.json
+    post_build:
+        commands:
+            - echo Build completed on `date`
+            - echo Pushing the Docker image...
+            - docker image ls -a
+            - docker push $REPOSITORY_URI:$IMAGE_TAG
+artifacts:
+    files:
+        - imagedefinitions.json
